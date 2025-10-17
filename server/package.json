@@ -1,7 +1,11 @@
 {
-  "type": "module",
+  "name": "node-ws-game-server",
+  "author": "<contact@vamsi-k.com> Vamsi Konakanchi",
+  "license": "ISC",
+  "main": "./dist/index.js",
   "scripts": {
-    "dev": "nodemon",
+    "dev": "concurrently \"esbuild src/index.ts --bundle --platform=node --outfile=dev/index.js --minify --sourcemap --watch\" \"nodemon dev/index.js\"",
+    "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --minify --tree-shaking --outfile=dist/index.js",
     "start": "node dist/index.js"
   },
   "dependencies": {
@@ -12,6 +16,8 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.7.2",
     "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.1",
+    "esbuild": "^0.25.11",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
