@@ -15,7 +15,7 @@ export class Entity {
 
     // COLLISION VARIABLES
     private radius: number;         // this is because all the entities have a circle collider by default
-    private restitution: number;    // how much bouncy the entity is
+    private restitution: number;    // how much bouncy the entity is lower means lower bouncing
 
     constructor(socket: WebSocket, pos: ICoord, color: string, id: number, world: ICoord) {
         // ENTITY DATA
@@ -31,12 +31,14 @@ export class Entity {
         this.acceleration = 0.8;    // How quickly players speed up
         this.friction = 0.92;       // How quickly they slow down (0.9-0.95 feels good)
         this.maxSpeed = 8;          // Maximum velocity in any direction
-        this.mass = Math.random() > 0.5 ? 50 : 10;             // the mass of the entity
+        this.mass = 10;             // The mass of the entity
 
         // COLLISION DATA
         this.radius = 20;           // matching client side radius of entities
         this.restitution = 0.6;  // for bouncing back after collision
     }
+
+    // GETTERS
 
     public getPos = () => this.pos;
     public getColor = () => this.color;
@@ -45,10 +47,9 @@ export class Entity {
     public getId = () => this.id;
     public getRadius = () => this.radius;
     public getMass = () => this.mass;
-    public getJson = () => ({
-        id: this.id,
-        pos: this.pos
-    })
+    public getJson = () => ({ id: this.id, pos: this.pos })
+
+    // NETWORKING METHODS
 
     public send(msg: Record<string, any>) {
         this.socket.send(JSON.stringify(msg));
@@ -116,7 +117,7 @@ export class Entity {
         this.pos.x += this.velocity.x;
         this.pos.y += this.velocity.y;
 
-        this.checkForCollisions();
+        this.checkForBoundaryCollisions();
     }
 
     private checkForBoundaryCollisions() {
@@ -203,8 +204,7 @@ export class Entity {
         // Only apply impulse if moving toward each other
         if (relativeVelAlongNormal < 0) {
             // Calculate impulse magnitude (based on mass and restitution)
-            const restitution = 0.5; // Bounciness (can be different per entity)
-            const impulseMagnitude = -(1 + restitution) * relativeVelAlongNormal / (1 / this.mass + 1 / other.getMass());
+            const impulseMagnitude = -(1 + this.restitution) * relativeVelAlongNormal / (1 / this.mass + 1 / other.getMass());
 
             // Apply impulse to velocities (mass affects how much velocity changes)
             const impulseX = impulseMagnitude * nx;
@@ -218,11 +218,8 @@ export class Entity {
         }
     }
 
-    public checkForCollisions() {
-        this.checkForBoundaryCollisions();
-    }
-
     public update() {
+        // called by entity manager, for each frame in the game loop
         this.updatePhysics();
     }
 
