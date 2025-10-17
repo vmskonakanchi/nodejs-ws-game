@@ -32,9 +32,9 @@ ws.onmessage = (e) => {
         sessionStorage.setItem("id", serverData.id)
         break;
       case "NEW_PLAYER":
-        const { color, pos, id } = serverData;
+        const { color, pos, id, mass } = serverData;
         const { x, y } = pos;
-        const newPlayer = new Player(ctx, x, y, color, id);
+        const newPlayer = new Player(ctx, x, y, color, id, mass);
         players.add(newPlayer);
         break;
       case "STATE":

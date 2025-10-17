@@ -1,10 +1,15 @@
 import type { WebSocket } from "ws";
-import type { Entity } from "@/entity";
+import { Entity } from "@/entity";
+import { ICoord, IDir } from "./types";
 
 export class EntityManager {
     private entities: Record<number, Entity>;
     private entityCount: number;
     private static instance: EntityManager;
+
+    private static readonly KEY_NEW_PLAYER = "NEW_PLAYER";
+    private static readonly KEY_STATE = "STATE";
+    private static entityCounter = 1;
 
     constructor(entities = {}) {
         this.entities = entities;
@@ -18,7 +23,6 @@ export class EntityManager {
 
     public static getInstance() {
         // singleton pattern for the entity manager
-
         if (!this.instance) {
             this.instance = new EntityManager();
         }
@@ -32,6 +36,11 @@ export class EntityManager {
 
     public findEntityById = (id: number) => this.entities[id];
 
+    private onRemoveEntity(id: number) {
+        delete this.entities[id];
+        this.broadcastState();
+    }
+
     public deleteEntityBySocket = (socket: WebSocket) => {
         for (const [id, player] of Object.entries(this.entities)) {
             if (player.getSocket() === socket) {
@@ -40,8 +49,16 @@ export class EntityManager {
         }
     }
 
-    public addEntity(id: number, entity: Entity) {
-        this.entities[id] = entity;
+    public addEntity(socket: WebSocket, randmPos: ICoord, randomColor: string, world: ICoord) {
+        const newEntity = new Entity(socket, randmPos, randomColor, EntityManager.entityCounter, world, this.onRemoveEntity);
+        newEntity.send({ id: EntityManager.entityCounter, type: "REGISTER" });
+        this.entities[EntityManager.entityCounter] = newEntity;
+
+        this.broadCastEntityToAllEntities(newEntity);
+
+        this.broadCastEntityToAllEntitiesExcept(newEntity, EntityManager.entityCounter);
+
+        EntityManager.entityCounter++;
     }
 
     public broadcast(msg: Record<string, string | any>, except?: string) {
@@ -60,10 +77,11 @@ export class EntityManager {
             if (!entity) continue;
 
             newEntity.send({
-                type: "NEW_PLAYER",
+                type: EntityManager.KEY_NEW_PLAYER,
                 pos: entity.getPos(),
                 color: entity.getColor(),
                 id: entity.getId(),
+                mass: entity.getMass(),
             });
         }
     }
@@ -75,23 +93,22 @@ export class EntityManager {
             if (!client) continue;
 
             client.send({
-                type: "NEW_PLAYER",
+                type: EntityManager.KEY_NEW_PLAYER,
                 pos: newEntity.getPos(),
                 color: newEntity.getColor(),
                 id: newEntity.getId(),
+                mass: newEntity.getMass(),
             });
         }
     }
 
 
     public broadcastState() {
-        this.broadcast({ type: "STATE", state: this.getState() });
+        this.broadcast({ type: EntityManager.KEY_STATE, state: this.getState() });
     }
 
     public checkForCollisions() {
         const entityArray = Object.values(this.entities);
-
-        console.log(`Total entities: ${entityArray.length}`);
 
         if (entityArray.length <= 1) return;
 
@@ -105,8 +122,6 @@ export class EntityManager {
                     continue;
                 }
 
-                console.log(`Checking collision between entity ${entity1.getId()} and ${entity2.getId()}`);
-
                 const pos1 = entity1.getPos();
                 const pos2 = entity2.getPos();
 
@@ -116,14 +131,18 @@ export class EntityManager {
 
                 const minDistance = entity1.getRadius() + entity2.getRadius();
 
-                console.log(`Distance: ${distance.toFixed(2)}, MinDistance: ${minDistance}`);
-
                 if (distance < minDistance) {
                     console.log(`🔴 COLLISION!`);
                     entity1.resolveCollisionWith(entity2, distance, dx, dy);
                 }
             }
         }
+    }
+
+    public moveEntity(id: number, dir: IDir) {
+        const currentClient = this.findEntityById(id);
+        if (!currentClient) return;
+        currentClient.move(dir);
     }
 
     public update() {

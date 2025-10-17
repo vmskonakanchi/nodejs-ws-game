@@ -6,10 +6,10 @@ export class Player {
     private targetY: number;
     private color: string;
     private id: number;
-    private radius = 20;
+    private mass: number;
     private lerpSpeed = 0.1;
 
-    constructor(ctx: CanvasRenderingContext2D | null, x: number, y: number, color: string, id: number) {
+    constructor(ctx: CanvasRenderingContext2D | null, x: number, y: number, color: string, id: number, mass: number) {
         if (!ctx) throw new Error("Context is null");
         this.ctx = ctx;
         this.x = x;
@@ -18,6 +18,8 @@ export class Player {
         this.targetY = y;
         this.color = color;
         this.id = id;
+
+        this.mass = mass;
     }
 
     private lerp(start: number, end: number, t: number): number {
@@ -39,7 +41,7 @@ export class Player {
     draw() {
         this.ctx.fillStyle = this.color;
         this.ctx.beginPath();
-        this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        this.ctx.arc(this.x, this.y, this.mass, 0, Math.PI * 2);
         this.ctx.fill();
     }
 

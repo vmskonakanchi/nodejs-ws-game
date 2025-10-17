@@ -19,8 +19,6 @@ const wss = new WebSocketServer({ server });
 
 const entityManager = EntityManager.getInstance();
 
-let entityCounter = 1;
-
 wss.on("connection", (socket, req) => {
     const searchParams = new URLSearchParams(req.url?.replace("/", ""));
 
@@ -32,8 +30,6 @@ wss.on("connection", (socket, req) => {
     const randmPos = generateRandomPos(world.x, world.y);
     const randomColor = getRandomColor();
 
-    const newEntity = new Entity(socket, randmPos, randomColor, entityCounter, world);
-
     const exitingSocket = entityManager.findEntityBySocket(socket);
 
     if (exitingSocket) {
@@ -44,16 +40,7 @@ wss.on("connection", (socket, req) => {
 
     console.log(`New client connected`);
 
-    const playerId = entityCounter;
-    newEntity.send({ id: entityCounter, type: "REGISTER" });
-    entityManager.addEntity(entityCounter, newEntity);
-    entityCounter++;
-
-    // FIRST: Send all EXISTING players to the NEW client
-    entityManager.broadCastEntityToAllEntities(newEntity);
-
-    // THEN: Broadcast the NEW player to all OTHER clients except itseld
-    entityManager.broadCastEntityToAllEntitiesExcept(newEntity, playerId);
+    entityManager.addEntity(socket, randmPos, randomColor, world);
 
     socket.on("message", (data: string) => {
         const clientData = JSON.parse(data);
@@ -63,9 +50,7 @@ wss.on("connection", (socket, req) => {
         switch (clientData.type) {
             case "MOVE":
                 const { id, dir } = clientData;
-                const currentClient = entityManager.findEntityById(id);
-                if (!currentClient) return;
-                currentClient.move(dir);
+                entityManager.moveEntity(id, dir);
                 break;
 
             default:

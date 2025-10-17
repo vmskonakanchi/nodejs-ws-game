@@ -1,5 +1,6 @@
 import type { WebSocket } from "ws";
 import type { ICoord, IDir } from "@/types";
+import { EventEmitter } from "stream";
 
 export class Entity {
     private id: number;
@@ -17,7 +18,11 @@ export class Entity {
     private radius: number;         // this is because all the entities have a circle collider by default
     private restitution: number;    // how much bouncy the entity is lower means lower bouncing
 
-    constructor(socket: WebSocket, pos: ICoord, color: string, id: number, world: ICoord) {
+
+    // EVENTS
+    private onRemove: (id: number) => void;
+
+    constructor(socket: WebSocket, pos: ICoord, color: string, id: number, world: ICoord, onRemove: (id: number) => void) {
         // ENTITY DATA
         this.socket = socket;
         this.pos = pos;
@@ -36,6 +41,9 @@ export class Entity {
         // COLLISION DATA
         this.radius = 20;           // matching client side radius of entities
         this.restitution = 0.6;  // for bouncing back after collision
+
+        // EVENT EMITTER FUNCTIONS
+        this.onRemove = onRemove;
     }
 
     // GETTERS
@@ -215,12 +223,28 @@ export class Entity {
 
             otherVel.x -= impulseX / other.getMass();
             otherVel.y -= impulseY / other.getMass();
+
+            // INCREASING MASS (agar.io mechanic)
+
         }
     }
 
     public update() {
         // called by entity manager, for each frame in the game loop
         this.updatePhysics();
+    }
+
+
+    // ENTITY METHODS
+
+    public remove() {
+        // method to remove the entity from the game
+
+        // calling method to notify others
+        this.onRemove(this.id);
+
+        // disconnecting from the network
+        this.socket.close();
     }
 
 }
