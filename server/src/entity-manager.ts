@@ -4,6 +4,7 @@ import type { Entity } from "@/entity";
 export class EntityManager {
     private entities: Record<number, Entity>;
     private entityCount: number;
+    private static instance: EntityManager;
 
     constructor(entities = {}) {
         this.entities = entities;
@@ -13,6 +14,15 @@ export class EntityManager {
         } else {
             this.entityCount = 0;
         }
+    }
+
+    public static getInstance() {
+        // singleton pattern for the entity manager
+
+        if (!this.instance) {
+            this.instance = new EntityManager();
+        }
+        return this.instance;
     }
 
     public getCount = () => this.entityCount;
@@ -73,6 +83,7 @@ export class EntityManager {
         }
     }
 
+    
     public broadcastState() {
         this.broadcast({ type: "STATE", state: this.getState() });
     }

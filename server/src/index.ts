@@ -3,9 +3,13 @@ import { WebSocketServer } from 'ws';
 import { generateRandomPos, getRandomColor } from '@/utils';
 import { Entity } from '@/entity';
 import { EntityManager } from '@/entity-manager';
+import { ICoord } from '@/types';
 
 const app = express();
 const port = parseInt(process.env.PORT || "5000");
+
+const FPS_60 = 16; // 16ms gives 60 frames per second
+const FPS_30 = 33; // 33ms gives 30 frames per second
 
 const server = app.listen(port, () => {
     console.log(`Game server is listening on ${port}`);
@@ -13,31 +17,37 @@ const server = app.listen(port, () => {
 
 const wss = new WebSocketServer({ server });
 
-const entityManager = new EntityManager();
+const entityManager = EntityManager.getInstance();
 
-let playerCounter = 1;
+let entityCounter = 1;
 
 wss.on("connection", (socket, req) => {
     const searchParams = new URLSearchParams(req.url?.replace("/", ""));
 
-    const boundX = parseInt(searchParams.get("width") || "500");
-    const boundY = parseInt(searchParams.get("height") || "500");
+    const world: ICoord = {
+        x: parseInt(searchParams.get("width") || "500"),
+        y: parseInt(searchParams.get("height") || "500"),
+    }
 
-    const newEntity = new Entity(socket, generateRandomPos(boundX, boundY), getRandomColor(), playerCounter);
+    const randmPos = generateRandomPos(world.x, world.y);
+    const randomColor = getRandomColor();
+
+    const newEntity = new Entity(socket, randmPos, randomColor, entityCounter, world);
 
     const exitingSocket = entityManager.findEntityBySocket(socket);
 
     if (exitingSocket) {
         // we have an existing client
+        console.log(`Client is already connected`)
         return;
     }
 
     console.log(`New client connected`);
 
-    const playerId = playerCounter;
-    newEntity.send({ id: playerCounter, type: "REGISTER" });
-    entityManager.addEntity(playerCounter, newEntity);
-    playerCounter++;
+    const playerId = entityCounter;
+    newEntity.send({ id: entityCounter, type: "REGISTER" });
+    entityManager.addEntity(entityCounter, newEntity);
+    entityCounter++;
 
     // FIRST: Send all EXISTING players to the NEW client
     entityManager.broadCastEntityToAllEntities(newEntity);
@@ -74,8 +84,9 @@ const gameLoop = setInterval(() => {
     // Step 1: Update ALL players' physics first
     entityManager.update();
 
+    // STEP 2: Broadcast the state to clients
     entityManager.broadcastState();
-}, 16); // Also changed to 16ms for ~60 FPS
+}, FPS_60);
 
 
 process.on("beforeexit", () => {
