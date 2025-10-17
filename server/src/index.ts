@@ -81,10 +81,13 @@ wss.on("connection", (socket, req) => {
 
 // Server game loop
 const gameLoop = setInterval(() => {
-    // Step 1: Update ALL players' physics first
+    // Step 1: Update ALL entity' physics first
     entityManager.update();
 
-    // STEP 2: Broadcast the state to clients
+    // STEP 2: Checking entity collissions
+    entityManager.checkForCollisions();
+
+    // STEP 3: Broadcast the state to clients
     entityManager.broadcastState();
 }, FPS_60);
 

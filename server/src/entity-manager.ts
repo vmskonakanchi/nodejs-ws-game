@@ -83,9 +83,47 @@ export class EntityManager {
         }
     }
 
-    
+
     public broadcastState() {
         this.broadcast({ type: "STATE", state: this.getState() });
+    }
+
+    public checkForCollisions() {
+        const entityArray = Object.values(this.entities);
+
+        console.log(`Total entities: ${entityArray.length}`);
+
+        if (entityArray.length <= 1) return;
+
+        for (let i = 0; i < entityArray.length; i++) {
+            for (let j = i + 1; j < entityArray.length; j++) {
+                const entity1 = entityArray[i];
+                const entity2 = entityArray[j];
+
+                if (!entity1 || !entity2) {
+                    console.log(`Skipping - null entity`);
+                    continue;
+                }
+
+                console.log(`Checking collision between entity ${entity1.getId()} and ${entity2.getId()}`);
+
+                const pos1 = entity1.getPos();
+                const pos2 = entity2.getPos();
+
+                const dx = pos2.x - pos1.x;
+                const dy = pos2.y - pos1.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                const minDistance = entity1.getRadius() + entity2.getRadius();
+
+                console.log(`Distance: ${distance.toFixed(2)}, MinDistance: ${minDistance}`);
+
+                if (distance < minDistance) {
+                    console.log(`🔴 COLLISION!`);
+                    entity1.resolveCollisionWith(entity2, distance, dx, dy);
+                }
+            }
+        }
     }
 
     public update() {

@@ -11,6 +11,7 @@ export class Entity {
     private friction: number;
     private maxSpeed: number;
     private world: ICoord;
+    private mass: number;
 
     // COLLISION VARIABLES
     private radius: number;         // this is because all the entities have a circle collider by default
@@ -30,6 +31,7 @@ export class Entity {
         this.acceleration = 0.8;    // How quickly players speed up
         this.friction = 0.92;       // How quickly they slow down (0.9-0.95 feels good)
         this.maxSpeed = 8;          // Maximum velocity in any direction
+        this.mass = Math.random() > 0.5 ? 50 : 10;             // the mass of the entity
 
         // COLLISION DATA
         this.radius = 20;           // matching client side radius of entities
@@ -42,6 +44,7 @@ export class Entity {
     public getSocket = () => this.socket;
     public getId = () => this.id;
     public getRadius = () => this.radius;
+    public getMass = () => this.mass;
     public getJson = () => ({
         id: this.id,
         pos: this.pos
@@ -153,8 +156,66 @@ export class Entity {
 
     }
 
-    private handleCollisionWith(other: Entity) {
-        // Check if this has collided with other entity
+    public resolveCollisionWith(other: Entity, distance: number, dx: number, dy: number) {
+        // PHASE 1: POSITION CORRECTION (Direct manipulation)
+        // This prevents overlap and repeated collision detection
+
+        // Handle edge case
+        if (distance === 0) {
+            this.pos.x += (Math.random() - 0.5) * 2;
+            this.pos.y += (Math.random() - 0.5) * 2;
+            return;
+        }
+
+        // Calculate collision normal (direction)
+        const nx = dx / distance;
+        const ny = dy / distance;
+
+        // Calculate overlap
+        const overlap = (this.radius + other.getRadius()) - distance;
+
+        // Push entities apart based on mass ratio
+        const totalMass = this.mass + other.getMass();
+        const thisRatio = other.getMass() / totalMass;  // Heavier = push less
+        const otherRatio = this.mass / totalMass;       // Lighter = push more
+
+        this.pos.x -= nx * overlap * thisRatio;
+        this.pos.y -= ny * overlap * thisRatio;
+
+        const otherPos = other.getPos();
+        otherPos.x += nx * overlap * otherRatio;
+        otherPos.y += ny * overlap * otherRatio;
+
+
+        // PHASE 2: VELOCITY RESPONSE (Physics-based)
+        // This creates the bounce/push effect
+
+        const thisVel = this.velocity;
+        const otherVel = other.getVelocity();
+
+        // Calculate relative velocity
+        const relativeVelX = thisVel.x - otherVel.x;
+        const relativeVelY = thisVel.y - otherVel.y;
+
+        // Project relative velocity onto collision normal (dot product)
+        const relativeVelAlongNormal = relativeVelX * nx + relativeVelY * ny;
+
+        // Only apply impulse if moving toward each other
+        if (relativeVelAlongNormal < 0) {
+            // Calculate impulse magnitude (based on mass and restitution)
+            const restitution = 0.5; // Bounciness (can be different per entity)
+            const impulseMagnitude = -(1 + restitution) * relativeVelAlongNormal / (1 / this.mass + 1 / other.getMass());
+
+            // Apply impulse to velocities (mass affects how much velocity changes)
+            const impulseX = impulseMagnitude * nx;
+            const impulseY = impulseMagnitude * ny;
+
+            thisVel.x += impulseX / this.mass;
+            thisVel.y += impulseY / this.mass;
+
+            otherVel.x -= impulseX / other.getMass();
+            otherVel.y -= impulseY / other.getMass();
+        }
     }
 
     public checkForCollisions() {
